@@ -55,6 +55,7 @@
         <div class="flex items-center gap-3">
             <span class="text-xs sm:text-sm text-gray-300" x-text="syncMessage" aria-live="polite"></span>
             <button x-show="!isAdmin" @click="showLoginModal = true" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded font-bold shadow transition">Zaloguj</button>
+            <button x-show="isAdmin" @click="changeGithubToken()" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded font-bold shadow transition">Token API</button>
             <button x-show="isAdmin" @click="logout()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded font-bold shadow transition">Wyloguj</button>
         </div>
     </div>
@@ -416,7 +417,10 @@
         // KONFIGURACJA WSPÓLNEGO ZAPISU (GitHub Gist)
         const GIST_ID = 'ac59df4b5ea4bdd1a14f36baf4bab039';
         const GIST_FILENAME = 'tournament-data.json';
-        const GITHUB_TOKEN = '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'; // Fine-grained PAT: Gists -> Write
+        const GIST_OWNER = 'miszarus';
+        const GIST_RAW_URL = `https://gist.githubusercontent.com/${GIST_OWNER}/${GIST_ID}/raw/${GIST_FILENAME}`;
+        // Token nie jest umieszczany w kodzie. Jest przechowywany wyłącznie w przeglądarce administratora.
+        const GITHUB_TOKEN_STORAGE_KEY = 'orlik_github_gist_token';
 
         function tournamentApp() {
             return {
@@ -471,20 +475,22 @@
 
                 async loadData(silent = false) {
                     try {
-                        if (!GIST_ID || GIST_ID === 'WSTAW_ID_GIST') throw new Error('Brak konfiguracji Gist');
-                        const readHeaders = { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
-                        if (GITHUB_TOKEN && GITHUB_TOKEN !== 'WSTAW_TOKEN_GITHUB') {
-                            readHeaders['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
-                        }
-                        const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                            headers: readHeaders,
+                        if (!GIST_ID || !GIST_OWNER) throw new Error('Brak konfiguracji Gist');
+
+                        // Publiczny Gist odczytujemy bez tokena i bez GitHub REST API.
+                        // Omija to limit 60 anonimowych zapytań API na godzinę.
+                        const response = await fetch(`${GIST_RAW_URL}?_=${Date.now()}`, {
+                            method: 'GET',
                             cache: 'no-store'
                         });
-                        if (!response.ok) throw new Error(`GitHub API: ${response.status}`);
-                        const gist = await response.json();
-                        const file = gist.files && gist.files[GIST_FILENAME];
-                        if (!file) throw new Error(`Brak pliku ${GIST_FILENAME} w Gist`);
-                        const parsed = file.content && file.content.trim() ? JSON.parse(file.content) : { _initialize: true };
+                        if (!response.ok) {
+                            if (response.status === 404) throw new Error(`HTTP 404 – nie znaleziono ${GIST_FILENAME}. Sprawdź nazwę pliku w Gist.`);
+                            throw new Error(`HTTP ${response.status} podczas pobierania pliku Gist`);
+                        }
+
+                        const rawText = await response.text();
+                        const parsed = rawText.trim() ? JSON.parse(rawText) : { _initialize: true };
+
                         if (parsed._initialize) {
                             // Jednorazowa migracja danych z lokalnej przeglądarki administratora.
                             const legacy = localStorage.getItem('orlikTournamentData');
@@ -493,16 +499,39 @@
                                 this.legacyDataPending = true;
                                 this.syncMessage = 'Odnaleziono lokalne dane – zaloguj się i zapisz';
                             } else {
-                                this.syncMessage = 'Gotowe do pierwszego zapisu';
+                                this.syncMessage = 'Gist gotowy do pierwszego zapisu';
                             }
                         } else {
                             this.applyData(parsed);
                             this.syncMessage = 'Dane aktualne';
                         }
                     } catch (error) {
-                        this.syncMessage = error.message === 'Brak konfiguracji Gist' ? 'Wymagana konfiguracja Gist' : 'Błąd pobierania danych';
+                        const message = error instanceof SyntaxError
+                            ? 'Nieprawidłowy JSON w pliku Gist'
+                            : (error.message || 'Nieznany błąd połączenia');
+                        this.syncMessage = `Błąd pobierania: ${message}`;
                         if (!silent) console.error('Nie udało się pobrać danych z GitHub Gist:', error);
                     }
+                },
+
+                getGithubToken() {
+                    return localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) || '';
+                },
+
+                changeGithubToken() {
+                    const current = this.getGithubToken();
+                    const entered = window.prompt(
+                        'Wklej nowy GitHub Personal Access Token z uprawnieniem Gists: write. Token będzie zapisany tylko w tej przeglądarce, nie w pliku HTML ani repozytorium.',
+                        current
+                    );
+                    if (entered === null) return;
+                    if (!entered.trim()) {
+                        localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+                        this.syncMessage = 'Usunięto token – odczyt publiczny nadal działa';
+                        return;
+                    }
+                    localStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, entered.trim());
+                    this.syncMessage = 'Token zapisany lokalnie w tej przeglądarce';
                 },
 
                 applyData(data) {
@@ -523,6 +552,7 @@
                         this.loginError = false;
                         this.adminUser = '';
                         this.adminPass = '';
+                        if (!this.getGithubToken()) this.changeGithubToken();
                         if (this.legacyDataPending) this.saveData(true);
                     } else {
                         this.loginError = true;
@@ -540,25 +570,31 @@
                     this.syncMessage = 'Oczekiwanie na zapis…';
                     const performSave = async () => {
                         try {
-                            if (!GIST_ID || GIST_ID === 'WSTAW_ID_GIST' || !GITHUB_TOKEN || GITHUB_TOKEN === 'WSTAW_TOKEN_GITHUB') {
-                                throw new Error('Wstaw token GitHub z uprawnieniem Gists: write');
+                            const githubToken = this.getGithubToken();
+                            if (!GIST_ID || !githubToken) {
+                                throw new Error('Brak tokena. Kliknij „Token API” i wklej token z uprawnieniem Gists: write.');
                             }
                             const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                                 method: 'PATCH',
                                 headers: {
                                     'Accept': 'application/vnd.github+json',
-                                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                                    'Authorization': `Bearer ${githubToken}`,
                                     'X-GitHub-Api-Version': '2022-11-28',
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(this.getDataSnapshot(), null, 2) } } })
                             });
-                            const result = await response.json();
-                            if (!response.ok) throw new Error(result.message || `GitHub API: ${response.status}`);
+                            const result = await response.json().catch(() => ({}));
+                            if (!response.ok) {
+                                if (response.status === 401 || response.status === 403) {
+                                    throw new Error(`HTTP ${response.status}: token jest nieważny albo nie ma uprawnienia Gists: write`);
+                                }
+                                throw new Error(result.message || `GitHub API: ${response.status}`);
+                            }
                             this.legacyDataPending = false;
                             this.syncMessage = 'Zapisano wspólne dane';
                         } catch (error) {
-                            this.syncMessage = 'Błąd zapisu – sprawdź konfigurację';
+                            this.syncMessage = `Błąd zapisu: ${error.message || 'sprawdź konfigurację Gist'}`;
                             console.error('Nie udało się zapisać danych w GitHub Gist:', error);
                         }
                     };
