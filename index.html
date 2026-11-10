@@ -22,12 +22,29 @@
             -webkit-appearance: none;
             margin: 0;
         }
+        html { -webkit-text-size-adjust: 100%; }
+        body { overflow-x: hidden; }
+        button, input { min-height: 40px; }
+        table { width: 100%; }
+        .table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-scroll table { min-width: 640px; }
+        @media (max-width: 640px) {
+            header img { max-width: min(100%, 300px); height: auto; }
+            main { padding-left: 12px !important; padding-right: 12px !important; }
+            main .rounded-2xl { border-radius: 14px; }
+            main .p-6 { padding: 14px; }
+            main h1 { font-size: 1.45rem; line-height: 1.9rem; }
+            main h2 { font-size: 1.1rem; line-height: 1.5rem; }
+            .tab-buttons { display: grid !important; grid-template-columns: 1fr; width: 100%; }
+            .tab-buttons button { width: 100%; justify-content: center; padding: 12px 10px !important; }
+            .table-scroll table { min-width: 600px; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 font-sans" x-data="tournamentApp()">
     
     <!-- PASEK AUTORYZACJI (ADMIN) -->
-    <div class="bg-gray-900 text-white text-sm py-2 px-4 sm:px-8 flex justify-between items-center shadow-md">
+    <div class="bg-gray-900 text-white text-sm py-2 px-4 sm:px-8 flex flex-wrap gap-2 justify-between items-center shadow-md">
         <div class="flex items-center gap-2">
             <span class="text-xl">🛡️</span>
             <span class="font-medium">Tryb: 
@@ -35,7 +52,8 @@
                       :class="isAdmin ? 'text-green-400 font-bold' : 'text-gray-400'"></span>
             </span>
         </div>
-        <div>
+        <div class="flex items-center gap-3">
+            <span class="text-xs sm:text-sm text-gray-300" x-text="syncMessage" aria-live="polite"></span>
             <button x-show="!isAdmin" @click="showLoginModal = true" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded font-bold shadow transition">Zaloguj</button>
             <button x-show="isAdmin" @click="logout()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded font-bold shadow transition">Wyloguj</button>
         </div>
@@ -78,7 +96,7 @@
         
         <!-- ZAKŁADKI -->
         <div class="flex justify-center mb-8">
-            <div class="inline-flex rounded-xl bg-gray-200 p-1.5 shadow-inner">
+            <div class="tab-buttons inline-flex rounded-xl bg-gray-200 p-1.5 shadow-inner">
                 <button @click="activeTab = 'football'" 
                         :class="activeTab === 'football' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:text-gray-900'"
                         class="px-6 py-3 rounded-lg font-bold text-sm sm:text-base transition-all duration-200 flex items-center gap-2">
@@ -206,7 +224,7 @@
             <!-- TERMINARZ FAZA GRUPOWA -->
             <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
                 <h3 class="text-xl font-bold text-blue-900 mb-4">📅 Terminarz – Faza Grupowa & Animacje</h3>
-                <div class="overflow-x-auto">
+                <div class="table-scroll overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-800 text-white">
@@ -251,7 +269,7 @@
             <!-- TERMINARZ FAZA PLAY-OFF -->
             <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
                 <h3 class="text-xl font-bold text-blue-900 mb-4">🏆 Terminarz – Faza Play-Off (Miejsca 1–4)</h3>
-                <div class="overflow-x-auto">
+                <div class="table-scroll overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-blue-900 text-white">
@@ -330,7 +348,7 @@
                     </button>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="table-scroll overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-amber-600 text-white">
@@ -395,6 +413,11 @@
 
     <!-- SKRYPT LOGIKI ALPINE.JS -->
     <script>
+        // KONFIGURACJA WSPÓLNEGO ZAPISU (GitHub Gist)
+        const GIST_ID = 'ac59df4b5ea4bdd1a14f36baf4bab039';
+        const GIST_FILENAME = 'tournament-data.json';
+        const GITHUB_TOKEN = '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'; // Fine-grained PAT: Gists -> Write
+
         function tournamentApp() {
             return {
                 isAdmin: false,
@@ -402,6 +425,10 @@
                 adminUser: '',
                 adminPass: '',
                 loginError: false,
+                syncMessage: 'Łączenie…',
+                pollHandle: null,
+                saveHandle: null,
+                legacyDataPending: false,
                 
                 activeTab: 'football',
                 groups: {
@@ -435,42 +462,108 @@
                 ],
                 
                 init() {
-                    let savedData = localStorage.getItem('orlikTournamentData');
-                    if (savedData) {
-                        let parsed = JSON.parse(savedData);
-                        this.groups = parsed.groups || this.groups;
-                        this.groupMatches = parsed.groupMatches || this.groupMatches;
-                        this.playoffMatches = parsed.playoffMatches || this.playoffMatches;
-                        this.turboPlayers = parsed.turboPlayers || this.turboPlayers;
+                    this.syncMessage = 'Pobieranie danych…';
+                    this.loadData();
+                    this.pollHandle = setInterval(() => {
+                        if (!this.isAdmin) this.loadData(true);
+                    }, 30000);
+                },
+
+                async loadData(silent = false) {
+                    try {
+                        if (!GIST_ID || GIST_ID === 'WSTAW_ID_GIST') throw new Error('Brak konfiguracji Gist');
+                        const readHeaders = { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+                        if (GITHUB_TOKEN && GITHUB_TOKEN !== 'WSTAW_TOKEN_GITHUB') {
+                            readHeaders['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
+                        }
+                        const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                            headers: readHeaders,
+                            cache: 'no-store'
+                        });
+                        if (!response.ok) throw new Error(`GitHub API: ${response.status}`);
+                        const gist = await response.json();
+                        const file = gist.files && gist.files[GIST_FILENAME];
+                        if (!file) throw new Error(`Brak pliku ${GIST_FILENAME} w Gist`);
+                        const parsed = file.content && file.content.trim() ? JSON.parse(file.content) : { _initialize: true };
+                        if (parsed._initialize) {
+                            // Jednorazowa migracja danych z lokalnej przeglądarki administratora.
+                            const legacy = localStorage.getItem('orlikTournamentData');
+                            if (legacy) {
+                                this.applyData(JSON.parse(legacy));
+                                this.legacyDataPending = true;
+                                this.syncMessage = 'Odnaleziono lokalne dane – zaloguj się i zapisz';
+                            } else {
+                                this.syncMessage = 'Gotowe do pierwszego zapisu';
+                            }
+                        } else {
+                            this.applyData(parsed);
+                            this.syncMessage = 'Dane aktualne';
+                        }
+                    } catch (error) {
+                        this.syncMessage = error.message === 'Brak konfiguracji Gist' ? 'Wymagana konfiguracja Gist' : 'Błąd pobierania danych';
+                        if (!silent) console.error('Nie udało się pobrać danych z GitHub Gist:', error);
                     }
                 },
 
-                tryLogin() {
+                applyData(data) {
+                    this.groups = data.groups || this.groups;
+                    this.groupMatches = data.groupMatches || this.groupMatches;
+                    this.playoffMatches = data.playoffMatches || this.playoffMatches;
+                    this.turboPlayers = data.turboPlayers || this.turboPlayers;
+                },
+
+                getDataSnapshot() {
+                    return { groups: this.groups, groupMatches: this.groupMatches, playoffMatches: this.playoffMatches, turboPlayers: this.turboPlayers };
+                },
+
+                async tryLogin() {
                     if (this.adminUser === 'admin' && this.adminPass === 'admin') {
                         this.isAdmin = true;
                         this.showLoginModal = false;
                         this.loginError = false;
                         this.adminUser = '';
                         this.adminPass = '';
+                        if (this.legacyDataPending) this.saveData(true);
                     } else {
                         this.loginError = true;
                     }
                 },
-                
+
                 logout() {
                     this.isAdmin = false;
+                    this.syncMessage = 'Tryb odczytu';
                 },
 
-                saveData() {
-                    if (this.isAdmin) {
-                        let dataToSave = {
-                            groups: this.groups,
-                            groupMatches: this.groupMatches,
-                            playoffMatches: this.playoffMatches,
-                            turboPlayers: this.turboPlayers
-                        };
-                        localStorage.setItem('orlikTournamentData', JSON.stringify(dataToSave));
-                    }
+                saveData(immediate = false) {
+                    if (!this.isAdmin) return;
+                    clearTimeout(this.saveHandle);
+                    this.syncMessage = 'Oczekiwanie na zapis…';
+                    const performSave = async () => {
+                        try {
+                            if (!GIST_ID || GIST_ID === 'WSTAW_ID_GIST' || !GITHUB_TOKEN || GITHUB_TOKEN === 'WSTAW_TOKEN_GITHUB') {
+                                throw new Error('Wstaw token GitHub z uprawnieniem Gists: write');
+                            }
+                            const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Accept': 'application/vnd.github+json',
+                                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                                    'X-GitHub-Api-Version': '2022-11-28',
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(this.getDataSnapshot(), null, 2) } } })
+                            });
+                            const result = await response.json();
+                            if (!response.ok) throw new Error(result.message || `GitHub API: ${response.status}`);
+                            this.legacyDataPending = false;
+                            this.syncMessage = 'Zapisano wspólne dane';
+                        } catch (error) {
+                            this.syncMessage = 'Błąd zapisu – sprawdź konfigurację';
+                            console.error('Nie udało się zapisać danych w GitHub Gist:', error);
+                        }
+                    };
+                    if (immediate) performSave();
+                    else this.saveHandle = setTimeout(performSave, 500);
                 },
                 
                 getTeamName(key) {
