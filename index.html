@@ -140,11 +140,12 @@
                     </div>
                     <!-- Grupa B -->
                     <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-100">
-                        <h3 class="font-bold text-amber-800 mb-3 text-lg">Grupa B (3 zespoły)</h3>
+                        <h3 class="font-bold text-amber-800 mb-3 text-lg">Grupa B (4 zespoły)</h3>
                         <template x-for="(team, index) in groups.B" :key="'gb-'+index">
                             <div class="mb-3">
                                 <label class="block text-xs font-semibold text-gray-600 mb-1" x-text="'Zespół ' + (index+1)"></label>
                                 <input type="text" x-model="groups.B[index]" @input="saveData()" :disabled="!isAdmin" 
+                                       :placeholder="index === 3 ? 'Wpisz nazwę dodatkowego zespołu' : ''"
                                        :class="isAdmin ? 'bg-white border-gray-300 focus:ring-2 focus:ring-amber-500' : 'bg-transparent border-transparent'"
                                        class="w-full px-3 py-2 border rounded-lg text-sm transition-all">
                             </div>
@@ -437,7 +438,7 @@
                 activeTab: 'football',
                 groups: {
                     A: ['KS Pomorzanka Jarosławsko 1', 'Kłos Pełczyce', 'Sęp Bronowice', 'Orkan Jarosławsko'],
-                    B: ['Strzelce Kraj Team', 'KS Pomorzanka Jarosławsko 2', 'AllSport Pełczyce']
+                    B: ['Strzelce Kraj Team', 'KS Pomorzanka Jarosławsko 2', 'AllSport Pełczyce', '']
                 },
                 groupMatches: [
                     { id: 1, phase: 'Grupa A', teamKey1: 'A0', teamKey2: 'A1', score1: '', score2: '', note: 'Mecz 1 (Grupa A)', isAnim: false },
@@ -445,20 +446,23 @@
                     { id: 3, phase: 'Grupa A', teamKey1: 'A2', teamKey2: 'A3', score1: '', score2: '', note: 'Mecz 2 (Grupa A)', isAnim: false },
                     { id: 4, phase: 'Grupa B', teamKey1: 'B1', teamKey2: 'B2', score1: '', score2: '', note: 'Mecz 2 (Grupa B)', isAnim: false },
                     { id: 5, phase: 'Grupa A', teamKey1: 'A0', teamKey2: 'A2', score1: '', score2: '', note: 'Mecz 3 (Grupa A)', isAnim: false },
-                    { id: 6, phase: 'Grupa B', teamKey1: 'B0', teamKey2: 'B2', score1: '', score2: '', note: 'Mecz 3 (Grupa B) (Koniec Gr. B)', isAnim: false },
+                    { id: 6, phase: 'Grupa B', teamKey1: 'B0', teamKey2: 'B2', score1: '', score2: '', note: 'Mecz 3 (Grupa B)', isAnim: false },
                     { id: '-', phase: 'Animacje', team1: 'PRZERWA DLA NAJMŁODSZYCH NR 1', score1: null, score2: null, note: '15 minut', isAnim: true },
                     { id: 7, phase: 'Grupa A', teamKey1: 'A1', teamKey2: 'A3', score1: '', score2: '', note: 'Mecz 4 (Grupa A)', isAnim: false },
                     { id: 8, phase: 'Grupa A', teamKey1: 'A0', teamKey2: 'A3', score1: '', score2: '', note: 'Mecz 5 (Grupa A)', isAnim: false },
                     { id: 9, phase: 'Grupa A', teamKey1: 'A1', teamKey2: 'A2', score1: '', score2: '', note: 'Mecz 6 (Grupa A) (Koniec Gr. A)', isAnim: false },
+                    { id: 10, phase: 'Grupa B', teamKey1: 'B0', teamKey2: 'B3', score1: '', score2: '', note: 'Mecz 4 (Grupa B)', isAnim: false },
+                    { id: 11, phase: 'Grupa B', teamKey1: 'B1', teamKey2: 'B3', score1: '', score2: '', note: 'Mecz 5 (Grupa B)', isAnim: false },
+                    { id: 12, phase: 'Grupa B', teamKey1: 'B2', teamKey2: 'B3', score1: '', score2: '', note: 'Mecz 6 (Grupa B) (Koniec Gr. B)', isAnim: false },
                     { id: '-', phase: 'Animacje', team1: 'PRZERWA DLA NAJMŁODSZYCH NR 2', score1: null, score2: null, note: '15 minut (Odpoczynek półfinalistów)', isAnim: true },
                 ],
                 playoffMatches: [
-                    { id: 10, phase: 'Półfinał 1', t1Key: '1A', t2Key: '2B', score1: '', score2: '', note: 'Awans do Finału', isAnim: false },
-                    { id: 11, phase: 'Półfinał 2', t1Key: '1B', t2Key: '2A', score1: '', score2: '', note: 'Awans do Finału', isAnim: false },
+                    { id: 13, phase: 'Półfinał 1', t1Key: '1A', t2Key: '2B', score1: '', score2: '', note: 'Awans do Finału', isAnim: false },
+                    { id: 14, phase: 'Półfinał 2', t1Key: '1B', t2Key: '2A', score1: '', score2: '', note: 'Awans do Finału', isAnim: false },
                     { id: '-', phase: 'Animacje', team1: 'PRZERWA DLA NAJMŁODSZYCH NR 3', noteText: 'PRZERWA DLA NAJMŁODSZYCH NR 3', score1: null, score2: null, note: '15 minut', isAnim: true },
-                    { id: 12, phase: 'Mecz o 3 m-ce', t1Key: 'LOS_PF1_PRZEGRANY', t2Key: 'LOS_PF2_PRZEGRANY', score1: '', score2: '', note: 'Mecz o 3. miejsce', isAnim: false },
+                    { id: 15, phase: 'Mecz o 3 m-ce', t1Key: 'LOS_PF1_PRZEGRANY', t2Key: 'LOS_PF2_PRZEGRANY', score1: '', score2: '', note: 'Mecz o 3. miejsce', isAnim: false },
                     { id: '-', phase: 'Animacje', team1: 'PRZERWA DLA NAJMŁODSZYCH NR 4', noteText: 'PRZERWA DLA NAJMŁODSZYCH NR 4', score1: null, score2: null, note: '15 minut', isAnim: true },
-                    { id: 13, phase: 'Finał', t1Key: 'WIN_PF1', t2Key: 'WIN_PF2', score1: '', score2: '', note: 'Zwycięzca Turnieju', isAnim: false, isFinal: true },
+                    { id: 16, phase: 'Finał', t1Key: 'WIN_PF1', t2Key: 'WIN_PF2', score1: '', score2: '', note: 'Zwycięzca Turnieju', isAnim: false, isFinal: true },
                 ],
                 turboPlayers: [
                     { id: 1, name: 'Jan Kowalski', c1: 0, c2: 0, c3: 0, c4: 0, c5: 0 },
@@ -535,10 +539,39 @@
                 },
 
                 applyData(data) {
-                    this.groups = data.groups || this.groups;
-                    this.groupMatches = data.groupMatches || this.groupMatches;
-                    this.playoffMatches = data.playoffMatches || this.playoffMatches;
-                    this.turboPlayers = data.turboPlayers || this.turboPlayers;
+                    // Zachowujemy zapisane nazwy zespołów, a przy starszych danych
+                    // dokładamy nowe, czwarte miejsce w Grupie B.
+                    const defaults = this.groups;
+                    const savedGroups = data.groups || {};
+                    const savedA = Array.isArray(savedGroups.A) ? savedGroups.A : defaults.A;
+                    const savedB = Array.isArray(savedGroups.B) ? savedGroups.B : defaults.B;
+                    this.groups = { A: [...savedA], B: [...savedB] };
+                    while (this.groups.B.length < 4) {
+                        this.groups.B.push(defaults.B[this.groups.B.length] ?? '');
+                    }
+
+                    // Migracja starszego Gista: dopasowujemy wyniki po numerze meczu,
+                    // a w play-offach po nazwie fazy. Dzięki temu stare wyniki pozostają.
+                    const mergeSavedMatches = (defaultMatches, savedMatches, identity) => {
+                        if (!Array.isArray(savedMatches)) return defaultMatches;
+                        const savedByKey = new Map(savedMatches.map(match => [identity(match), match]));
+                        return defaultMatches.map(match => {
+                            const saved = savedByKey.get(identity(match));
+                            return saved ? { ...match, score1: saved.score1 ?? match.score1, score2: saved.score2 ?? match.score2 } : match;
+                        });
+                    };
+
+                    this.groupMatches = mergeSavedMatches(
+                        this.groupMatches,
+                        data.groupMatches,
+                        match => match.isAnim ? `anim:${match.note || match.team1}` : `id:${match.id}`
+                    );
+                    this.playoffMatches = mergeSavedMatches(
+                        this.playoffMatches,
+                        data.playoffMatches,
+                        match => match.isAnim ? `anim:${match.note || match.team1}` : `phase:${match.phase}`
+                    );
+                    this.turboPlayers = Array.isArray(data.turboPlayers) ? data.turboPlayers : this.turboPlayers;
                 },
 
                 getDataSnapshot() {
@@ -603,8 +636,12 @@
                 },
                 
                 getTeamName(key) {
-                    if (key.startsWith('A')) return this.groups.A[parseInt(key[1])] || 'Zespół A';
-                    if (key.startsWith('B')) return this.groups.B[parseInt(key[1])] || 'Zespół B';
+                    if (key.startsWith('A') || key.startsWith('B')) {
+                        const group = key[0];
+                        const teamIndex = parseInt(key.slice(1), 10);
+                        const teamName = this.groups[group]?.[teamIndex];
+                        return teamName && teamName.trim() ? teamName : `Zespół ${group} ${teamIndex + 1} (do uzupełnienia)`;
+                    }
                     return key;
                 },
 
@@ -613,13 +650,15 @@
                 },
 
                 get standingsB() {
-                    return this.calcStandings(this.groups.B, [1,3,5]);
+                    return this.calcStandings(this.groups.B, [1,3,5,10,11,12]);
                 },
 
                 calcStandings(groupTeams, matchIndices) {
                     let stats = {};
                     groupTeams.forEach(name => {
-                        stats[name] = { name: name, played: 0, points: 0, gf: 0, ga: 0, gd: 0 };
+                        if (typeof name === 'string' && name.trim()) {
+                            stats[name] = { name: name, played: 0, points: 0, gf: 0, ga: 0, gd: 0 };
+                        }
                     });
 
                     matchIndices.forEach(idx => {
